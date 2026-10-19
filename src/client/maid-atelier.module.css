@@ -6821,3 +6821,75 @@ body[data-dsh-maid-atelier][data-ds-dark-theme] [data-phase='active'] :has(+ * >
     transform: none;
   }
 }
+
+/* ============================================================================
+ * 社区增强版补丁（2026-10-19）
+ * 与 lib/client.js 中的实现一一对应，改动此处后需重新构建产物。
+ * ========================================================================== */
+
+/* 1. 会话头部：Session Log 与「对话 / 轨迹 / 皮肤」三键同排胶囊化。
+      选择器必须带 [class*='header'] 门禁，否则会误伤第三方插件（如插件市场
+      的分页条）里同样含 tabs 类名的元素。 */
+body[data-dsh-maid-atelier] [class*='header'] [class*='headerUtilities'] {
+  position: absolute;
+  top: 50%;
+  right: 28px;
+  transform: translateY(-50%);
+  margin-left: 0;
+}
+
+body[data-dsh-maid-atelier] [class*='header'] [class*='tabs'] {
+  position: absolute;
+  top: 50%;
+  right: calc(28px + var(--maid-header-utilities-width, 140px) + 10px);
+  transform: translateY(-50%);
+  gap: 8px;
+  margin-top: 0;
+  padding-left: 0;
+}
+
+body[data-dsh-maid-atelier] [class*='header'] [class*='tabs'] button[class*='tab'] {
+  box-sizing: border-box;
+  min-width: 111px;
+  height: 32px;
+  padding: 0 16px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 18px;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+body[data-dsh-maid-atelier] [class*='header'] [class*='tabs'] button[class*='tab']::after {
+  display: none;
+}
+
+body[data-dsh-maid-atelier] [class*='header'] [class*='tabs'] button[class*='tabActive'] {
+  color: #f8f3e8;
+  border-color: #c5a468;
+  background: rgba(197, 164, 104, 0.18);
+}
+
+/* 2. 背景铺法交给 --maid-palace-size（fill / cover / contain），
+      由社区背景模块在 syncBackdrop 时写入。 */
+body[data-dsh-maid-atelier] [data-skin-chrome='character-stage'] {
+  background: var(--maid-palace-art) center bottom / var(--maid-palace-size, cover) no-repeat;
+}
+
+/* 3. 女仆立绘不随屏幕断点淡化：上游在 <=1080px 降到 0.74、聊天态 0.9、
+      手机竖屏 0.66，社区版统一保持完全不透明。
+      注意：「隐藏立绘」开关（html[data-dsh-whale-maid-art='hidden']）特异性更高，
+      仍然有效，不会被这条覆盖。 */
+body[data-dsh-maid-atelier] [data-maid-character='left'],
+body[data-dsh-maid-atelier] [data-maid-character='right'] {
+  opacity: 1 !important;
+}
+
+/* 4. 上游固定立绘停用：立绘改由社区浮窗系统接管，可自由拖动与缩放。 */
+body[data-dsh-maid-atelier] [data-maid-character] {
+  display: none !important;
+}

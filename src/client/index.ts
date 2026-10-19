@@ -16,7 +16,9 @@ import {
   MAID_ATELIER_MAID_LEFT,
   MAID_ATELIER_MAID_RIGHT,
   MAID_ATELIER_PALACE_DARK,
+  MAID_ATELIER_PALACE_DARK_CLASSIC,
   MAID_ATELIER_PALACE_LIGHT,
+  MAID_ATELIER_PALACE_LIGHT_CLASSIC,
 } from './background-art.generated.ts'
 import {
   MAID_ATELIER_COMPOSER_FRAME_SHELL,
@@ -55,6 +57,7 @@ import { releaseClaimedStyles } from './release-claimed-styles.ts'
 import { installMaidRelationalMarkers } from './relational-markers.ts'
 import { installMaidCharacterFit } from './character-fit.ts'
 import { installMaidPlatformCaption } from './platform-caption.ts'
+import { installCommunityEnhancements, type CommunityHandle } from './community/index.ts'
 
 const SKIN_TITLE = '深海女仆工坊 · DeepSeek Harness'
 const SKIN_OWNER = 'maid-atelier'
@@ -680,7 +683,14 @@ export function apply(ctx: PanelContext): void {
   body.style.setProperty('--maid-workspace-crest-art', `url(${MAID_ATELIER_WORKSPACE_SHIELD})`)
   body.style.setProperty('--maid-workspace-ribbon-art', `url(${MAID_ATELIER_WORKSPACE_RIBBON})`)
 
+  // ── 社区增强版：背景换图 / 字体细粒度 / 角色浮窗 / 设置中心 ──────────
+  let community: CommunityHandle | undefined
   const syncBackdrop = (): void => {
+    if (community !== undefined) {
+      community.syncBackdrop()
+      return
+    }
+    // 社区模块挂载前的兜底：只走内置宫殿图。
     const source = body.hasAttribute('data-ds-dark-theme')
       ? MAID_ATELIER_PALACE_DARK
       : MAID_ATELIER_PALACE_LIGHT
@@ -692,6 +702,45 @@ export function apply(ctx: PanelContext): void {
       body.style.setProperty('--maid-palace-art', next)
     }
   }
+  syncBackdrop()
+
+  // 主题偏好写入通道：与 dsh「设置 → 外观」共用同一份存储（ui-theme.preference），
+  // 皮肤的日夜按钮写这里，刷新后不再与宿主互相覆盖。
+  // 注意：必须同时注入 `remote` 与 `remote.settings`，否则拿不到 settings 子服务。
+  let setThemePreference: ((preference: 'light' | 'dark') => Promise<void>) | undefined
+  ctx.inject(['remote', 'remote.settings'], (scope) => {
+    const remote = (scope as unknown as {
+      remote?: { settings?: { update: (ns: string, patch: unknown) => Promise<unknown> } }
+    }).remote
+    const settings = remote?.settings
+    if (settings === undefined) return
+    setThemePreference = async (preference) => {
+      await settings.update('ui-theme', { preference })
+    }
+  })
+
+  community = installCommunityEnhancements({
+    skinOwner: SKIN_OWNER,
+    maidLeft: MAID_ATELIER_MAID_LEFT,
+    maidRight: MAID_ATELIER_MAID_RIGHT,
+    isDark: () => body.hasAttribute('data-ds-dark-theme'),
+    fallbackDark: MAID_ATELIER_PALACE_DARK,
+    fallbackLight: MAID_ATELIER_PALACE_LIGHT,
+    classicDark: MAID_ATELIER_PALACE_DARK_CLASSIC,
+    classicLight: MAID_ATELIER_PALACE_LIGHT_CLASSIC,
+    setBackdrop: (source, size) => {
+      const next = `url(${source})`
+      if (body.style.getPropertyValue('--maid-palace-art') !== next) {
+        body.style.setProperty('--maid-palace-art', next)
+      }
+      body.style.setProperty('--maid-palace-size', size)
+    },
+    setThemePreference: (preference) => {
+      const writer = setThemePreference
+      if (writer === undefined) return Promise.resolve()
+      return writer(preference)
+    },
+  })
   syncBackdrop()
 
   // 宽度联动写入独立的 <style> 规则而非 body style：CSSOM 修改不产生
